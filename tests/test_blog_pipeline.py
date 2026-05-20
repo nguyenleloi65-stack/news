@@ -25,10 +25,14 @@ class LoaderNotionBlogTests(unittest.TestCase):
                 "enabled": True,
                 "token": "token_123",
                 "database_id": "db_456",
+                "blog_count": 2,
+                "source_limit": 10,
+                "word_count_min": 500,
+                "word_count_max": 700,
+                "cron": "0 8 * * *",
                 "topics": ["人工智能"],
-                "word_count": {"min": 500, "max": 700},
-                "style": "headline",
-                "schedule": {"enabled": True},
+                "style": {"format": "parchment", "tone": "headline_cn"},
+                "image": {"license": "royalty_free", "provider": "pexels"},
                 "image_pool": ["https://images.pexels.com/photo.jpg"],
             }
         }
@@ -37,10 +41,16 @@ class LoaderNotionBlogTests(unittest.TestCase):
         self.assertTrue(notion_blog["ENABLED"])
         self.assertEqual(notion_blog["TOKEN"], "token_123")
         self.assertEqual(notion_blog["DATABASE_ID"], "db_456")
+        self.assertEqual(notion_blog["BLOG_COUNT"], 2)
+        self.assertEqual(notion_blog["SOURCE_LIMIT"], 10)
+        self.assertEqual(notion_blog["WORD_COUNT_MIN"], 500)
+        self.assertEqual(notion_blog["WORD_COUNT_MAX"], 700)
+        self.assertEqual(notion_blog["CRON"], "0 8 * * *")
         self.assertEqual(notion_blog["TOPICS"], ["人工智能"])
-        self.assertEqual(notion_blog["WORD_COUNT"], {"min": 500, "max": 700})
-        self.assertEqual(notion_blog["STYLE"], "headline")
-        self.assertEqual(notion_blog["SCHEDULE"], {"enabled": True})
+        self.assertEqual(notion_blog["STYLE_FORMAT"], "parchment")
+        self.assertEqual(notion_blog["STYLE_TONE"], "headline_cn")
+        self.assertEqual(notion_blog["IMAGE_LICENSE"], "royalty_free")
+        self.assertEqual(notion_blog["IMAGE_PROVIDER"], "pexels")
         self.assertEqual(notion_blog["IMAGE_POOL"], ["https://images.pexels.com/photo.jpg"])
 
 

@@ -91,21 +91,34 @@ def create_notion_page(token: str, database_id: str, title: str, html_content: s
 
 def run(limit: int = 30) -> None:
     cfg = load_config()
-    feeds = [f for f in cfg.get("RSS", {}).get("FEEDS", []) if f.get("ENABLED", True)][:limit]
+    notion_cfg = cfg.get("NOTION_BLOG", {}) or {}
+    if not notion_cfg.get("ENABLED", False):
+        print("[SKIP] notion_blog.enabled=false，已跳过博客生成与 Notion 发布。")
+        return
+
+    source_limit = int(notion_cfg.get("SOURCE_LIMIT", limit) or limit)
+    feeds = [f for f in cfg.get("RSS", {}).get("FEEDS", []) if f.get("ENABLED", True)][:source_limit]
     briefs = fetch_rss_briefs(feeds)
     ai_client = AIClient(cfg.get("AI", {}))
 
-    notion_cfg = cfg.get("NOTION_BLOG", {}) or {}
     token = notion_cfg.get("TOKEN", "")
     database_id = notion_cfg.get("DATABASE_ID", "")
+    topics = notion_cfg.get("TOPICS", TOPICS) or TOPICS
+    blog_count = int(notion_cfg.get("BLOG_COUNT", len(topics)) or len(topics))
+    image_pool = notion_cfg.get("IMAGE_POOL", DEFAULT_IMAGE_POOL) or DEFAULT_IMAGE_POOL
 
-    for idx, topic in enumerate(TOPICS):
+    if not (token and database_id):
+        print("[WARN] Notion token/database_id 未配置，生成内容仅在控制台显示，不会发布。")
+
+    for idx, topic in enumerate(topics[:blog_count]):
         blog = generate_blog(ai_client, topic, briefs)
-        image_url = DEFAULT_IMAGE_POOL[idx % len(DEFAULT_IMAGE_POOL)]
+        image_url = image_pool[idx % len(image_pool)]
         html = render_parchment_html(blog["title"], blog["content"], image_url)
         if token and database_id:
             create_notion_page(token, database_id, blog["title"], html)
-        print(f"[OK] {topic}: {blog['title']}")
+            print(f"[OK] 已发布到 Notion | {topic}: {blog['title']}")
+        else:
+            print(f"[OK] 已生成(未发布) | {topic}: {blog['title']}")
 
 
 if __name__ == "__main__":
