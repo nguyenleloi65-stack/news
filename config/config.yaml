@@ -105,19 +105,96 @@ rss:
   # - 正整数：覆盖全局设置，只推送此天数内的文章
   # - 0：禁用此频道的新鲜度过滤，推送所有文章
   feeds:
+    - id: "stratechery"
+      name: "Stratechery"
+      url: "https://stratechery.com/feed/"
+    - id: "ben-evans"
+      name: "Benedict Evans"
+      url: "https://www.ben-evans.com/benedictevans?format=rss"
+    - id: "import-ai"
+      name: "Import AI"
+      url: "https://importai.substack.com/feed"
+    - id: "semi-analysis"
+      name: "SemiAnalysis"
+      url: "https://www.semianalysis.com/feed"
+    - id: "not-boring"
+      name: "Not Boring"
+      url: "https://www.notboring.co/feed"
+    - id: "a16z"
+      name: "a16z"
+      url: "https://a16z.com/feed/"
+    - id: "slow-boring"
+      name: "Slow Boring"
+      url: "https://www.slowboring.com/feed"
+    - id: "noahpinion"
+      name: "Noahpinion"
+      url: "https://www.noahpinion.blog/feed"
+    - id: "money-stuff"
+      name: "Money Stuff"
+      url: "https://www.bloomberg.com/feeds/podcasts/odd-lots.xml"
+    - id: "marginal-revolution"
+      name: "Marginal Revolution"
+      url: "https://marginalrevolution.com/feed"
+    - id: "worksinprogress"
+      name: "Works in Progress"
+      url: "https://worksinprogress.co/feed"
+    - id: "the-diff"
+      name: "The Diff"
+      url: "https://thediff.co/feed/"
+    - id: "new-world-same-humans"
+      name: "NWSH"
+      url: "https://www.newworldsamehumans.com/feed"
+    - id: "every"
+      name: "Every"
+      url: "https://every.to/feed"
+    - id: "platformer"
+      name: "Platformer"
+      url: "https://www.platformer.news/feed"
+    - id: "future"
+      name: "Future"
+      url: "https://future.com/feed"
+    - id: "the-information"
+      name: "The Information"
+      url: "https://www.theinformation.com/feed"
+    - id: "rest-of-world"
+      name: "Rest of World"
+      url: "https://restofworld.org/feed/latest/"
+    - id: "aeon-tech"
+      name: "Aeon"
+      url: "https://aeon.co/feed.rss"
+    - id: "works-weekly"
+      name: "The Pragmatic Engineer"
+      url: "https://newsletter.pragmaticengineer.com/feed"
+    - id: "construction-physics"
+      name: "Construction Physics"
+      url: "https://www.construction-physics.com/feed"
+    - id: "bytes-tech"
+      name: "ByteByteGo"
+      url: "https://blog.bytebytego.com/feed"
+    - id: "lenny"
+      name: "Lenny's Newsletter"
+      url: "https://www.lennysnewsletter.com/feed"
+    - id: "pirate-wires"
+      name: "Pirate Wires"
+      url: "https://www.piratewires.com/feed"
+    - id: "nakamoto"
+      name: "Nakamoto"
+      url: "https://www.nakamoto.com/feed"
+    - id: "bankless"
+      name: "Bankless"
+      url: "https://www.bankless.com/feed"
+    - id: "the-generalist"
+      name: "The Generalist"
+      url: "https://www.generalist.com/feed"
+    - id: "the-hustle-trends"
+      name: "The Hustle"
+      url: "https://thehustle.co/feed/"
+    - id: "inside"
+      name: "Inside.com"
+      url: "https://inside.com/feed"
     - id: "hacker-news"
       name: "Hacker News"
       url: "https://hnrss.org/frontpage"
-
-    - id: "ruanyifeng"
-      name: "阮一峰的网络日志"
-      url: "http://www.ruanyifeng.com/blog/atom.xml"
-      enabled: false                  # 禁用
-      # max_age_days: 3               # 示例：推送 3 天内的文章（更新较慢的博客）
-     
-    - id: "yahoo-finance"
-      name: "雅虎财经"
-      url: "https://finance.yahoo.com/news/rssindex"
 
     # 自定义源示例
     # - id: "custom-feed"
@@ -430,7 +507,31 @@ ai_translation:
 
 
 # ===============================================================
-# 11. 高级设置（一般无需修改）
+# 11. 每日博客生成与 Notion 发布（二次开发）
+# ===============================================================
+notion_blog:
+  enabled: true
+  cron: "0 8 * * *"                 # 每天北京时间 08:00 触发（需外部调度器调用）
+  blog_count: 3
+  word_count_min: 500
+  word_count_max: 700
+  source_limit: 30                  # 每日用于摘要的新闻源数量上限
+  topics:
+    - "人工智能"
+    - "科技趋势"
+    - "网赚与数字副业"
+  style:
+    format: "parchment"             # 羊皮纸风格
+    tone: "headline_cn"             # 中文头条风格（吸引点击 + 信息差）
+  image:
+    license: "royalty_free"
+    provider: "pexels"
+  token: ""                         # Notion Integration Token（建议环境变量注入）
+  database_id: ""                   # Notion 数据库 ID
+
+
+# ===============================================================
+# 12. 高级设置（一般无需修改）
 # ===============================================================
 advanced:
   debug: false                        # 调试模式（true=开启详细日志, false=正常模式）
