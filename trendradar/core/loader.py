@@ -258,6 +258,21 @@ def _load_display_config(config_data: Dict) -> Dict:
     }
 
 
+def _load_notion_blog_config(config_data: Dict) -> Dict:
+    """加载博客发布到 Notion 的配置。"""
+    notion_blog = config_data.get("notion_blog", {}) or {}
+    return {
+        "ENABLED": notion_blog.get("enabled", False),
+        "TOKEN": notion_blog.get("token", ""),
+        "DATABASE_ID": notion_blog.get("database_id", ""),
+        "TOPICS": notion_blog.get("topics", []),
+        "WORD_COUNT": notion_blog.get("word_count", {}),
+        "STYLE": notion_blog.get("style", ""),
+        "SCHEDULE": notion_blog.get("schedule", {}),
+        "IMAGE_POOL": notion_blog.get("image_pool", []),
+    }
+
+
 def _load_ai_config(config_data: Dict) -> Dict:
     """加载 AI 模型配置（LiteLLM 格式）"""
     ai_config = config_data.get("ai", {})
@@ -598,6 +613,9 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
 
     # 推送内容显示配置
     config["DISPLAY"] = _load_display_config(config_data)
+
+    # Notion 博客配置
+    config["NOTION_BLOG"] = _load_notion_blog_config(config_data)
 
     # 存储配置
     config["STORAGE"] = _load_storage_config(config_data)

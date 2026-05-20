@@ -6,12 +6,8 @@ from __future__ import annotations
 import argparse
 import html
 import json
-import os
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict, List
-
-import yaml
 
 import feedparser
 import requests
@@ -93,23 +89,13 @@ def create_notion_page(token: str, database_id: str, title: str, html_content: s
     resp = requests.post("https://api.notion.com/v1/pages", headers=headers, json=payload, timeout=30)
     resp.raise_for_status()
 
-
-
-
-def _load_notion_blog_config() -> Dict[str, Any]:
-    config_path = os.environ.get("CONFIG_PATH", "config/config.yaml")
-    data = yaml.safe_load(Path(config_path).read_text(encoding="utf-8")) or {}
-    notion_blog = data.get("notion_blog", {}) or {}
-    return {str(k).upper(): v for k, v in notion_blog.items()}
-
-
 def run(limit: int = 30) -> None:
     cfg = load_config()
     feeds = [f for f in cfg.get("RSS", {}).get("FEEDS", []) if f.get("ENABLED", True)][:limit]
     briefs = fetch_rss_briefs(feeds)
     ai_client = AIClient(cfg.get("AI", {}))
 
-    notion_cfg = _load_notion_blog_config()
+    notion_cfg = cfg.get("NOTION_BLOG", {}) or {}
     token = notion_cfg.get("TOKEN", "")
     database_id = notion_cfg.get("DATABASE_ID", "")
 
