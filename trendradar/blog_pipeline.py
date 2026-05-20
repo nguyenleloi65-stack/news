@@ -4,15 +4,20 @@
 from __future__ import annotations
 
 import argparse
+import html
 import json
+import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List
+
+import yaml
 
 import feedparser
 import requests
 
 from trendradar.ai.client import AIClient
-from trendradar.core.loader import ConfigLoader
+from trendradar.core.loader import load_config
 
 TOPICS = ["人工智能", "科技趋势", "网赚与数字副业"]
 DEFAULT_IMAGE_POOL = [
@@ -54,6 +59,9 @@ def generate_blog(ai_client: AIClient, topic: str, briefs: str) -> Dict[str, str
 
 
 def render_parchment_html(title: str, content: str, image_url: str) -> str:
+    safe_title = html.escape(title, quote=True)
+    safe_content = html.escape(content, quote=False).replace("\n", "<br/>")
+    safe_image_url = html.escape(image_url, quote=True)
     css = """
     <style>
       body { background:#f4ecd8; font-family: 'STKaiti','KaiTi',serif; color:#3a2f1f; }
@@ -62,7 +70,7 @@ def render_parchment_html(title: str, content: str, image_url: str) -> str:
       img { width:100%; border-radius:10px; margin:18px 0; }
     </style>
     """
-    return f"{css}<div class='paper'><h1>{title}</h1><img src='{image_url}' alt='cover'/><div>{content.replace(chr(10), '<br/>')}</div></div>"
+    return f"{css}<div class='paper'><h1>{safe_title}</h1><img src='{safe_image_url}' alt='cover'/><div>{safe_content}</div></div>"
 
 
 def create_notion_page(token: str, database_id: str, title: str, html_content: str) -> None:
@@ -86,13 +94,22 @@ def create_notion_page(token: str, database_id: str, title: str, html_content: s
     resp.raise_for_status()
 
 
+
+
+def _load_notion_blog_config() -> Dict[str, Any]:
+    config_path = os.environ.get("CONFIG_PATH", "config/config.yaml")
+    data = yaml.safe_load(Path(config_path).read_text(encoding="utf-8")) or {}
+    notion_blog = data.get("notion_blog", {}) or {}
+    return {str(k).upper(): v for k, v in notion_blog.items()}
+
+
 def run(limit: int = 30) -> None:
-    cfg = ConfigLoader().load()
+    cfg = load_config()
     feeds = [f for f in cfg.get("RSS", {}).get("FEEDS", []) if f.get("ENABLED", True)][:limit]
     briefs = fetch_rss_briefs(feeds)
     ai_client = AIClient(cfg.get("AI", {}))
 
-    notion_cfg = cfg.get("NOTION_BLOG", {})
+    notion_cfg = _load_notion_blog_config()
     token = notion_cfg.get("TOKEN", "")
     database_id = notion_cfg.get("DATABASE_ID", "")
 
