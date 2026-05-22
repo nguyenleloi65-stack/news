@@ -6,12 +6,8 @@ from __future__ import annotations
 import argparse
 import html
 import json
-import os
-from datetime import datetime
-from pathlib import Path
+from datetime import datetime, timezone
 from typing import Any, Dict, List
-
-import yaml
 
 import feedparser
 import requests
@@ -25,6 +21,7 @@ DEFAULT_IMAGE_POOL = [
     "https://images.pexels.com/photos/546819/pexels-photo-546819.jpeg",
     "https://images.pexels.com/photos/3183150/pexels-photo-3183150.jpeg",
 ]
+NOTION_CODE_BLOCK_LIMIT = 1900
 
 
 def fetch_rss_briefs(feeds: List[Dict[str, str]], per_feed: int = 3) -> str:
@@ -39,9 +36,15 @@ def fetch_rss_briefs(feeds: List[Dict[str, str]], per_feed: int = 3) -> str:
     return "\n".join(lines[:120])
 
 
-def generate_blog(ai_client: AIClient, topic: str, briefs: str) -> Dict[str, str]:
+def generate_blog(
+    ai_client: AIClient,
+    topic: str,
+    briefs: str,
+    word_count_min: int = 500,
+    word_count_max: int = 700,
+) -> Dict[str, str]:
     prompt = f"""
-你是一位头条风格中文科技博主。请围绕“{topic}”写一篇 500-700 字文章，要求：
+你是一位头条风格中文科技博主。请围绕“{topic}”写一篇 {word_count_min}-{word_count_max} 字文章，要求：
 1) 标题要抓人眼球，适合中国读者；
 2) 有观点、有信息差，口语化但不低俗；
 3) 结构清晰，使用二级小标题；
@@ -74,52 +77,88 @@ def render_parchment_html(title: str, content: str, image_url: str) -> str:
 
 
 def create_notion_page(token: str, database_id: str, title: str, html_content: str) -> None:
+    html_chunks = [
+        html_content[i:i + NOTION_CODE_BLOCK_LIMIT]
+        for i in range(0, len(html_content), NOTION_CODE_BLOCK_LIMIT)
+    ] or [""]
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
         "Notion-Version": "2022-06-28",
     }
+    children = [
+        {
+            "object": "block",
+            "type": "paragraph",
+            "paragraph": {
+                "rich_text": [
+                    {
+                        "type": "text",
+                        "text": {
+                            "content": "以下为羊皮纸风格 HTML，可粘贴到支持 HTML 的前端展示。"
+                        },
+                    }
+                ]
+            },
+        }
+    ]
+    for chunk in html_chunks:
+        children.append(
+            {
+                "object": "block",
+                "type": "code",
+                "code": {
+                    "rich_text": [{"type": "text", "text": {"content": chunk}}],
+                    "language": "html",
+                },
+            }
+        )
+
     payload = {
         "parent": {"database_id": database_id},
         "properties": {
             "Name": {"title": [{"text": {"content": title}}]},
-            "Date": {"date": {"start": datetime.utcnow().date().isoformat()}},
+            "Date": {"date": {"start": datetime.now(timezone.utc).date().isoformat()}},
         },
-        "children": [
-            {"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"type": "text", "text": {"content": "以下为羊皮纸风格 HTML，可粘贴到支持 HTML 的前端展示。"}}]}},
-            {"object": "block", "type": "code", "code": {"rich_text": [{"type": "text", "text": {"content": html_content[:1900]}}], "language": "html"}},
-        ],
+        "children": children,
     }
     resp = requests.post("https://api.notion.com/v1/pages", headers=headers, json=payload, timeout=30)
     resp.raise_for_status()
 
-
-
-
-def _load_notion_blog_config() -> Dict[str, Any]:
-    config_path = os.environ.get("CONFIG_PATH", "config/config.yaml")
-    data = yaml.safe_load(Path(config_path).read_text(encoding="utf-8")) or {}
-    notion_blog = data.get("notion_blog", {}) or {}
-    return {str(k).upper(): v for k, v in notion_blog.items()}
-
-
 def run(limit: int = 30) -> None:
     cfg = load_config()
-    feeds = [f for f in cfg.get("RSS", {}).get("FEEDS", []) if f.get("ENABLED", True)][:limit]
+    notion_cfg = cfg.get("NOTION_BLOG", {}) or {}
+    if not notion_cfg.get("ENABLED", False):
+        print("[SKIP] notion_blog.enabled=false，已跳过博客生成与 Notion 发布。")
+        return
+
+    source_limit = int(notion_cfg.get("SOURCE_LIMIT", limit) or limit)
+    feeds = [f for f in cfg.get("RSS", {}).get("FEEDS", []) if f.get("ENABLED", True)][:source_limit]
     briefs = fetch_rss_briefs(feeds)
     ai_client = AIClient(cfg.get("AI", {}))
 
-    notion_cfg = _load_notion_blog_config()
     token = notion_cfg.get("TOKEN", "")
     database_id = notion_cfg.get("DATABASE_ID", "")
+    topics = notion_cfg.get("TOPICS", TOPICS) or TOPICS
+    blog_count = int(notion_cfg.get("BLOG_COUNT", len(topics)) or len(topics))
+    image_pool = notion_cfg.get("IMAGE_POOL", DEFAULT_IMAGE_POOL) or DEFAULT_IMAGE_POOL
+    word_count_min = int(notion_cfg.get("WORD_COUNT_MIN", 500) or 500)
+    word_count_max = int(notion_cfg.get("WORD_COUNT_MAX", 700) or 700)
+    if word_count_min > word_count_max:
+        word_count_min, word_count_max = word_count_max, word_count_min
 
-    for idx, topic in enumerate(TOPICS):
-        blog = generate_blog(ai_client, topic, briefs)
-        image_url = DEFAULT_IMAGE_POOL[idx % len(DEFAULT_IMAGE_POOL)]
+    if not (token and database_id):
+        print("[WARN] Notion token/database_id 未配置，生成内容仅在控制台显示，不会发布。")
+
+    for idx, topic in enumerate(topics[:blog_count]):
+        blog = generate_blog(ai_client, topic, briefs, word_count_min, word_count_max)
+        image_url = image_pool[idx % len(image_pool)]
         html = render_parchment_html(blog["title"], blog["content"], image_url)
         if token and database_id:
             create_notion_page(token, database_id, blog["title"], html)
-        print(f"[OK] {topic}: {blog['title']}")
+            print(f"[OK] 已发布到 Notion | {topic}: {blog['title']}")
+        else:
+            print(f"[OK] 已生成(未发布) | {topic}: {blog['title']}")
 
 
 if __name__ == "__main__":
