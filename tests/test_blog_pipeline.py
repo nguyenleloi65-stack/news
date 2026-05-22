@@ -1,6 +1,7 @@
 import unittest
+from unittest.mock import patch
 
-from trendradar.blog_pipeline import render_parchment_html
+from trendradar.blog_pipeline import NOTION_CODE_BLOCK_LIMIT, create_notion_page, render_parchment_html
 from trendradar.core.loader import _load_notion_blog_config
 
 
@@ -52,6 +53,25 @@ class LoaderNotionBlogTests(unittest.TestCase):
         self.assertEqual(notion_blog["IMAGE_LICENSE"], "royalty_free")
         self.assertEqual(notion_blog["IMAGE_PROVIDER"], "pexels")
         self.assertEqual(notion_blog["IMAGE_POOL"], ["https://images.pexels.com/photo.jpg"])
+
+
+class NotionPublishPayloadTests(unittest.TestCase):
+    @patch("trendradar.blog_pipeline.requests.post")
+    def test_create_notion_page_splits_long_html_into_multiple_code_blocks(self, mock_post) -> None:
+        long_html = "A" * (NOTION_CODE_BLOCK_LIMIT + 50)
+        mock_post.return_value.raise_for_status.return_value = None
+
+        create_notion_page("token", "db", "title", long_html)
+
+        payload = mock_post.call_args.kwargs["json"]
+        children = payload["children"]
+        code_blocks = [child for child in children if child.get("type") == "code"]
+
+        self.assertEqual(len(code_blocks), 2)
+        first_chunk = code_blocks[0]["code"]["rich_text"][0]["text"]["content"]
+        second_chunk = code_blocks[1]["code"]["rich_text"][0]["text"]["content"]
+        self.assertEqual(len(first_chunk), NOTION_CODE_BLOCK_LIMIT)
+        self.assertEqual(len(second_chunk), 50)
 
 
 if __name__ == "__main__":
